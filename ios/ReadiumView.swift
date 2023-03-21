@@ -35,6 +35,7 @@ class ReadiumView : UIView, Loggable {
   }
   @objc var onLocationChange: RCTDirectEventBlock?
   @objc var onTableOfContents: RCTDirectEventBlock?
+  @objc var onTranslate: RCTDirectEventBlock?
 
   func loadBook(
     url: String,
@@ -132,7 +133,14 @@ class ReadiumView : UIView, Loggable {
   private func addViewControllerAsSubview(_ vc: ReaderViewController) {
     vc.publisher.sink(
       receiveValue: { locator in
-        self.onLocationChange?(locator.json)
+          self.onLocationChange?(locator.json)
+      }
+    )
+    .store(in: &self.subscriptions)
+
+    (vc as? EPUBViewController)?.translatePublisher.sink(
+      receiveValue: { locator in
+          self.onTranslate?(locator.json)
       }
     )
     .store(in: &self.subscriptions)
