@@ -14,6 +14,7 @@ export type BaseReadiumViewProps = {
   style?: ViewStyle;
   onLocationChange?: (locator: Locator) => void;
   onTableOfContents?: (toc: Link[] | null) => void;
+  onTranslate?: (locator: Locator) => void;
   ref?: any;
   height?: number;
   width?: number;

@@ -1,8 +1,11 @@
+import Combine
 import UIKit
 import R2Shared
 import R2Navigator
 
 class EPUBViewController: ReaderViewController {
+  private var translateSubject = PassthroughSubject<Locator, Never>()
+  lazy var translatePublisher = translateSubject.eraseToAnyPublisher()
 
     init(
       publication: Publication,
@@ -10,10 +13,17 @@ class EPUBViewController: ReaderViewController {
       bookId: String,
       resourcesServer: ResourcesServer
     ) {
+      var navigatorEditingActions = EditingAction.defaultActions
+      navigatorEditingActions.removeAll()
+      navigatorEditingActions.append(EditingAction(title: "Translate", action: #selector(translateSelection)))
+      var navigatorConfig = EPUBNavigatorViewController.Configuration()
+      navigatorConfig.editingActions = navigatorEditingActions
+
       let navigator = EPUBNavigatorViewController(
         publication: publication,
         initialLocation: locator,
-        resourcesServer: resourcesServer
+        resourcesServer: resourcesServer,
+        config: navigatorConfig
       )
 
       super.init(
@@ -58,6 +68,12 @@ class EPUBViewController: ReaderViewController {
       return Bookmark(bookId: bookId, locator: locator)
     }
 
+    @objc func translateSelection() {
+      if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
+        translateSubject.send(selection.locator)
+        navigator.clearSelection()
+      }
+    }
 }
 
 extension EPUBViewController: EPUBNavigatorDelegate {}

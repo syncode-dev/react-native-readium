@@ -22,8 +22,10 @@ import com.reactnativereadium.utils.toggleSystemUi
 import java.net.URL
 import kotlinx.coroutines.delay
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.navigator.util.BaseActionModeCallback
 import org.readium.r2.navigator.ExperimentalDecorator
 import org.readium.r2.navigator.Navigator
+import org.readium.r2.navigator.SelectableNavigator
 import org.readium.r2.shared.APPEARANCE_REF
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
@@ -98,7 +100,7 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
                     // Register the HTML template for our custom [DecorationStyleAnnotationMark].
                     // TODO: remove?
                     /* decorationTemplates[DecorationStyleAnnotationMark::class] = annotationMarkTemplate(activity) */
-                    /* selectionActionModeCallback = customSelectionActionModeCallback */
+                    selectionActionModeCallback = customSelectionActionModeCallback
                 }
             )
 
@@ -196,6 +198,35 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
                     putString(BASE_URL_ARG, baseUrl.toString())
                 }
             }
+        }
+    }
+
+    val customSelectionActionModeCallback: ActionMode.Callback by lazy { SelectionActionModeCallback() }
+
+    private inner class SelectionActionModeCallback : BaseActionModeCallback() {
+        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+            mode.menuInflater.inflate(R.menu.menu_action_mode, menu)
+            menu.findItem(R.id.translate).isVisible = true
+            return true
+        }
+
+        override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+            when (item.itemId) {
+                R.id.translate -> sendTranslate()
+                else -> return false
+            }
+
+            mode.finish()
+            return true
+        }
+    }
+
+    private fun sendTranslate() = viewLifecycleOwner.lifecycleScope.launchWhenResumed {
+        (navigator as? SelectableNavigator)?.let { navigator ->
+            navigator.currentSelection()?.locator?.let { locator ->
+                channel.send(ReaderViewModel.Event.Translate(locator))
+            }
+            navigator.clearSelection()
         }
     }
 }

@@ -67,6 +67,15 @@ class ReadiumView(
             payload
           )
         }
+        is ReaderViewModel.Event.Translate -> {
+          val json = event.locator.toJSON()
+          val payload = Arguments.makeNativeMap(json.toMap())
+          module.receiveEvent(
+            this.id.toInt(),
+            ReadiumViewManager.ON_TRANSLATE,
+            payload
+          )
+        }
       }
     }
   }
