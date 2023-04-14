@@ -16,6 +16,7 @@ import {
 import { ReaderButton } from './ReaderButton';
 import { TableOfContents } from './TableOfContents';
 import { Settings as ReaderSettings } from './Settings';
+import { CoverImageView } from './CoverImageView';
 
 export const Reader: React.FC = () => {
   const [toc, setToc] = useState<Link[] | null>([]);
@@ -63,6 +64,11 @@ export const Reader: React.FC = () => {
     return (
       <View style={styles.container}>
         <View style={styles.controls}>
+          <View style={styles.button}>
+            <CoverImageView
+              epubPath={EPUB_PATH}
+            />
+          </View>
           <View style={styles.button}>
             <TableOfContents
               items={toc}

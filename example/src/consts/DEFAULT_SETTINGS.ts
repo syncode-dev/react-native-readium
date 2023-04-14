@@ -5,4 +5,5 @@ import {
 
 const DEFAULT_SETTINGS = new Settings();
 DEFAULT_SETTINGS.appearance = Appearance.NIGHT;
-export { DEFAULT_SETTINGS };
+const DEFAULT_BOOKCOVER = require('../../resources/default_bookcover.jpg');
+export { DEFAULT_SETTINGS, DEFAULT_BOOKCOVER };
