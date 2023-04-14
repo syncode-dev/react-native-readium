@@ -18,6 +18,7 @@ export const INITIAL_LOCATION: Locator = {
     totalProgression: 0.03392330383480826
   },
 };
+export const DEFAULT_BOOKCOVER = require('../resources/default_bookcover.jpg');
 
 const DEFAULT_SETTINGS = new Settings();
 DEFAULT_SETTINGS.appearance = Appearance.NIGHT;

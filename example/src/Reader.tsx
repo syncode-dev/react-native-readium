@@ -15,6 +15,7 @@ import {
 } from './consts';
 import { TableOfContents } from './TableOfContents';
 import { Settings as ReaderSettings } from './Settings';
+import { CoverImageView } from './CoverImageView';
 
 const Reader: React.FC = () => {
   const [toc, setToc] = useState<Link[] | null>([]);
@@ -69,6 +70,9 @@ const Reader: React.FC = () => {
           <ReaderSettings
             settings={settings}
             onSettingsChanged={(s) => setSettings(s)}
+          />
+          <CoverImageView
+            epubPath={EPUB_PATH}
           />
         </View>
         <View style={{ height: '90%' }}>
