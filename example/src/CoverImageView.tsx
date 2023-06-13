@@ -22,10 +22,11 @@ export const CoverImageView: React.FC<CoverImageViewProps> = ({
         const coverImage = await CoverImageModule.getCoverImage(epubPath, 300, 300);
         setImageUri(coverImage);
       } catch (err) {
+        console.log(err);
       }
     }
-    run();
-  }, []);
+    if (isOpen) run();
+  }, [isOpen]);
 
   return (
     <View>
