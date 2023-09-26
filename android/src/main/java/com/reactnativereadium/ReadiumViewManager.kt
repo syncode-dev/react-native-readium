@@ -8,6 +8,7 @@ import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewGroupManager
 import com.reactnativereadium.reader.ReaderService
 import com.reactnativereadium.utils.File
+import com.reactnativereadium.utils.Highlight
 import com.reactnativereadium.utils.LinkOrLocator
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -46,6 +47,20 @@ class ReadiumViewManager(
         MapBuilder.of(
           "phasedRegistrationNames",
           MapBuilder.of("bubbled", ON_TRANSLATE)
+        )
+      )
+      .put(
+        ON_SHOW_HIGHLIGHT,
+        MapBuilder.of(
+          "phasedRegistrationNames",
+          MapBuilder.of("bubbled", ON_SHOW_HIGHLIGHT)
+        )
+      )
+      .put(
+        ON_DELETE_HIGHLIGHT,
+        MapBuilder.of(
+          "phasedRegistrationNames",
+          MapBuilder.of("bubbled", ON_DELETE_HIGHLIGHT)
         )
       )
       .build()
@@ -124,6 +139,23 @@ class ReadiumViewManager(
     view.updateSettingsFromMap(settings.toHashMap())
   }
 
+  @ReactProp(name = "highlights")
+  fun setHighlights(view: ReadiumView, highlights: ReadableArray) {
+    val list = mutableListOf<Highlight>()
+    for (i in 0 until highlights.size()) {
+      val highlightMap = highlights.getMap(i)
+      val id = highlightMap.getInt("id")
+      val locator = highlightMap.getMap("locator")
+      if (id == null || locator == null) {
+        continue
+      }
+      val locatorJson = JSONObject(locator!!.toHashMap())
+      val highlight = Highlight(id, Locator.fromJSON(locatorJson)!!)
+      list.add(highlight)
+    }
+    view.updateHighlightsFromList(list)
+  }
+
   @ReactPropGroup(names = ["width", "height"], customType = "Style")
   fun setStyle(view: ReadiumView?, index: Int, value: Int) {
     if (index == 0) {
@@ -149,6 +181,8 @@ class ReadiumViewManager(
     var ON_LOCATION_CHANGE = "onLocationChange"
     var ON_TABLE_OF_CONTENTS = "onTableOfContents"
     var ON_TRANSLATE = "onTranslate"
+    var ON_SHOW_HIGHLIGHT = "onShowHighlight"
+    var ON_DELETE_HIGHLIGHT = "onDeleteHighlight"
     var COMMAND_CREATE = 1
   }
 }

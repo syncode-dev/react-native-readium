@@ -33,9 +33,16 @@ class ReadiumView : UIView, Loggable {
       self.updateUserSettings(settings)
     }
   }
+  @objc var highlights: NSArray? = nil {
+    didSet {
+      self.updateHighlights(highlights)
+    }
+  }
   @objc var onLocationChange: RCTDirectEventBlock?
   @objc var onTableOfContents: RCTDirectEventBlock?
   @objc var onTranslate: RCTDirectEventBlock?
+  @objc var onShowHighlight: RCTDirectEventBlock?
+  @objc var onDeleteHighlight: RCTDirectEventBlock?
 
   func loadBook(
     url: String,
@@ -115,6 +122,39 @@ class ReadiumView : UIView, Loggable {
     }
   }
 
+  func updateHighlights(_ highlights: NSArray?) {
+    if (highlights == nil) {
+      return
+    }
+
+    if (readerViewController == nil) {
+      // defer highlights update as view isn't initialized yet
+      return;
+    }
+
+    var list = [Highlight]()
+    for element in highlights! {
+      if let highlightDictionary = element as? NSDictionary {
+        let id = highlightDictionary["id"] as? Int
+        let locatorJson = highlightDictionary["locator"] as? NSDictionary
+        if (id == nil || locatorJson == nil) {
+          continue
+        }
+        if let locator = try? Locator(json: locatorJson!) {
+          let highlight = Highlight(
+            id: String(id!),
+            locator: locator
+          )
+          list.append(highlight)
+        }
+      }
+    }
+
+    if let vc = readerViewController as? EPUBViewController {
+      vc.updateHighlightsFromList(highlights: list)
+    }
+  }
+
   override func removeFromSuperview() {
     readerViewController?.willMove(toParent: nil)
     readerViewController?.view.removeFromSuperview()
@@ -138,9 +178,16 @@ class ReadiumView : UIView, Loggable {
     )
     .store(in: &self.subscriptions)
 
-    (vc as? EPUBViewController)?.translatePublisher.sink(
-      receiveValue: { locator in
+    (vc as? EPUBViewController)?.epubViewPublisher.sink(
+      receiveValue: { event in
+        switch event {
+        case .translate(let locator):
           self.onTranslate?(locator.json)
+        case .showHighlight(let highlightId):
+          self.onShowHighlight?(["id": highlightId])
+        case .deleteHighlight(let highlightId):
+          self.onDeleteHighlight?(["id": highlightId])
+        }
       }
     )
     .store(in: &self.subscriptions)
@@ -150,6 +197,10 @@ class ReadiumView : UIView, Loggable {
     // if the controller was just instantiated then apply any existing settings
     if (settings != nil) {
       self.updateUserSettings(settings)
+    }
+
+    if (highlights != nil) {
+      self.updateHighlights(highlights)
     }
 
     readerViewController!.view.frame = self.superview!.frame

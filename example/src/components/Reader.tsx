@@ -4,7 +4,7 @@ import {
   ReadiumView,
   Settings,
 } from 'react-native-readium';
-import type { Link, Locator, File } from 'react-native-readium';
+import type { Link, Locator, File, Highlight } from 'react-native-readium';
 
 import RNFS from '../utils/RNFS';
 import {
@@ -23,6 +23,8 @@ export const Reader: React.FC = () => {
   const [file, setFile] = useState<File>();
   const [location, setLocation] = useState<Locator | Link>();
   const [settings, setSettings] = useState<Partial<Settings>>(DEFAULT_SETTINGS);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [highlightId, setHighlightId] = useState<number>(1);
   const ref = useRef<any>();
 
   useEffect(() => {
@@ -59,6 +61,22 @@ export const Reader: React.FC = () => {
 
     run()
   }, []);
+
+  function updateHighlights(locator: Locator) {
+    console.log("updateHighlights");
+    const newHighlight = {
+      id: highlightId,
+      locator: locator,
+    };
+    setHighlights(prev => [...prev, newHighlight]);
+    setHighlightId(prev => prev + 1);
+  }
+
+  function deleteHighlight(highlight: Highlight) {
+    console.log(`delete highlight: ${highlight.id}`);
+    const newHighlights = highlights.filter(item => item.id !== highlight.id);
+    setHighlights(newHighlights);
+  }
 
   if (file) {
     return (
@@ -97,10 +115,14 @@ export const Reader: React.FC = () => {
               file={file}
               location={location}
               settings={settings}
+              highlights={highlights}
               onLocationChange={(locator: Locator) => setLocation(locator)}
               onTableOfContents={(toc: Link[] | null) => {
                 if (toc) setToc(toc)
               }}
+              onTranslate={locator => updateHighlights(locator)}
+              onShowHighlight={ (highlight: Highlight) => console.log(`show highlight: ${highlight.id}`) }
+              onDeleteHighlight={ (highlight: Highlight) => deleteHighlight(highlight) }
             />
           </View>
           {Platform.OS === 'web' ? (

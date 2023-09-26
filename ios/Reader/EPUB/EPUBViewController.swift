@@ -2,10 +2,17 @@ import Combine
 import UIKit
 import R2Shared
 import R2Navigator
+import SwiftUI
+
+enum EPUBViewEvent {
+    case translate(Locator)
+    case showHighlight(Int)
+    case deleteHighlight(Int)
+}
 
 class EPUBViewController: ReaderViewController {
-  private var translateSubject = PassthroughSubject<Locator, Never>()
-  lazy var translatePublisher = translateSubject.eraseToAnyPublisher()
+  private var epubViewSubject = PassthroughSubject<EPUBViewEvent, Never>()
+  lazy var epubViewPublisher = epubViewSubject.eraseToAnyPublisher()
 
     init(
       publication: Publication,
@@ -33,6 +40,8 @@ class EPUBViewController: ReaderViewController {
       )
 
       navigator.delegate = self
+
+      addHighlightDecorationsObserverOnce()
     }
 
     var epubNavigator: EPUBNavigatorViewController {
@@ -70,8 +79,64 @@ class EPUBViewController: ReaderViewController {
 
     @objc func translateSelection() {
       if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
-        translateSubject.send(selection.locator)
+        epubViewSubject.send(.translate(selection.locator))
         navigator.clearSelection()
+      }
+    }
+
+    private var highlightContextMenu: UIHostingController<HighlightContextMenu>?
+
+    func updateHighlightsFromList(highlights: [Highlight]) {
+      if let decorator = navigator as? DecorableNavigator {
+        let decorations = highlights.map {
+          Decoration(id: $0.id, locator: $0.locator, style: .highlight(tint: UIColor.yellow, isActive: false))
+        }
+        decorator.apply(decorations: decorations, in: "highlights")
+      }
+    }
+
+    private func addHighlightDecorationsObserverOnce() {
+      if let decorator = navigator as? DecorableNavigator {
+        decorator.observeDecorationInteractions(inGroup: "highlights") { [weak self] event in
+          self?.activateDecoration(event)
+        }
+      }
+    }
+
+    private func activateDecoration(_ event: OnDecorationActivatedEvent) {
+      let id: Int? = Int(event.decoration.id)
+      if (id == nil) {
+        return
+      }
+
+      if highlightContextMenu != nil {
+        highlightContextMenu?.removeFromParent()
+      }
+
+      let menuView = HighlightContextMenu(systemFontSize: 20)
+
+      menuView.selectShowPublisher.sink { [weak self] _ in
+        self?.epubViewSubject.send(.showHighlight(id!))
+        self?.highlightContextMenu?.dismiss(animated: true, completion: nil)
+      }
+      .store(in: &subscriptions)
+
+      menuView.selectDeletePublisher.sink { [weak self] _ in
+        self?.epubViewSubject.send(.deleteHighlight(id!))
+        self?.highlightContextMenu?.dismiss(animated: true, completion: nil)
+      }
+      .store(in: &subscriptions)
+
+      highlightContextMenu = UIHostingController(rootView: menuView)
+      highlightContextMenu!.preferredContentSize = menuView.preferredSize
+      highlightContextMenu!.modalPresentationStyle = .popover
+
+      if let popoverController = highlightContextMenu?.popoverPresentationController {
+        popoverController.permittedArrowDirections = [.up, .down]
+        popoverController.sourceRect = event.rect ?? .zero
+        popoverController.sourceView = view
+        popoverController.delegate = self
+        present(highlightContextMenu!, animated: true, completion: nil)
       }
     }
 }

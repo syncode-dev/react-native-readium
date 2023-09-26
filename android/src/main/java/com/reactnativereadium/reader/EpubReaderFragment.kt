@@ -8,9 +8,12 @@ package com.reactnativereadium.reader
 
 import android.graphics.Color
 import android.graphics.PointF
+import android.graphics.RectF
 import android.os.Bundle
 import android.view.*
 import android.view.accessibility.AccessibilityManager
+import android.widget.LinearLayout
+import android.widget.PopupWindow
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.commitNow
@@ -18,9 +21,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import com.reactnativereadium.epub.UserSettings
 import com.reactnativereadium.R
+import com.reactnativereadium.utils.Highlight
 import com.reactnativereadium.utils.toggleSystemUi
 import java.net.URL
 import kotlinx.coroutines.delay
+import org.json.JSONObject
+import org.readium.r2.navigator.DecorableNavigator
+import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.util.BaseActionModeCallback
 import org.readium.r2.navigator.ExperimentalDecorator
@@ -69,6 +76,30 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         initialSettingsMap = null
       } else {
         initialSettingsMap = map
+      }
+    }
+
+    fun updateHighlightsFromList(list: List<Highlight>) {
+      val decorations = list.map { highlight ->
+        var bundle = Bundle()
+        bundle.putInt("id", highlight.id.toInt())
+
+        Decoration(
+          id = highlight.id.toString() + "-highlight",
+          locator = highlight.locator,
+          style = Decoration.Style.Highlight(tint = Color.YELLOW),
+          extras = bundle
+        )
+      }
+
+      lifecycleScope.launchWhenResumed {
+        applyDecorations(decorations)
+      }
+    }
+
+    private suspend fun applyDecorations(decorations: List<Decoration>) {
+      (navigator as? DecorableNavigator)?.let { navigator ->
+        navigator.applyDecorations(decorations, "highlights")
       }
     }
 
@@ -140,6 +171,10 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
             val backgroundsColors = mutableListOf("#ffffff", "#faf4e8", "#000000")
             navigatorFragment.resourcePager.setBackgroundColor(Color.parseColor(backgroundsColors[appearancePref]))
         }
+
+        (navigator as? DecorableNavigator)?.let { navigator ->
+            navigator.addDecorationListener("highlights", decorationListener)
+        }
     }
 
     override fun onResume() {
@@ -169,6 +204,11 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
                 publication.userSettingsUIPreset.remove(ReadiumCSSName.ref(SCROLL_REF))
             }
         }
+    }
+
+    override fun onDestroyView() {
+        (navigator as? DecorableNavigator)?.removeDecorationListener(decorationListener)
+        super.onDestroyView()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -227,6 +267,89 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
                 channel.send(ReaderViewModel.Event.Translate(locator))
             }
             navigator.clearSelection()
+        }
+    }
+
+    private fun sendShowHighlight(highlightId: Int) = viewLifecycleOwner.lifecycleScope.launchWhenResumed {
+        channel.send(ReaderViewModel.Event.ShowHighlight(highlightId))
+    }
+
+    private fun sendDeleteHighlight(highlightId: Int) = viewLifecycleOwner.lifecycleScope.launchWhenResumed {
+        channel.send(ReaderViewModel.Event.DeleteHighlight(highlightId))
+    }
+
+    // DecorableNavigator.Listener
+
+    private val decorationListener by lazy { DecorationListener() }
+    private var popupWindow: PopupWindow? = null
+
+    private inner class DecorationListener : DecorableNavigator.Listener {
+        override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
+            val decoration = event.decoration
+            val id = (decoration.extras?.get("id") as Int)
+                .takeIf { it > 0 } ?: return false
+
+            event.rect?.let { rect ->
+                var eventRect = RectF(rect)
+                view?.let { view ->
+                    val locationOnScreen = IntArray(2)
+                    view.getLocationOnScreen(locationOnScreen)
+                    eventRect.offset(locationOnScreen[0].toFloat(), locationOnScreen[1].toFloat())
+                }
+                showHighlightPopup(
+                    eventRect,
+                    highlightId = id
+                )
+            }
+
+            return true
+        }
+    }
+
+    private fun showHighlightPopup(rect: RectF, highlightId: Int? = null) {
+        viewLifecycleOwner.lifecycleScope.launchWhenResumed {
+            if (popupWindow?.isShowing == true) {
+                return@launchWhenResumed
+            }
+
+            val popupView = layoutInflater.inflate(
+                R.layout.view_highlight_popup,
+                null,
+                false
+            )
+
+            popupView.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+
+            popupWindow = PopupWindow(
+                popupView,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                isFocusable = true
+                setOnDismissListener {
+                    popupWindow = null
+                }
+            }
+
+            popupWindow?.showAtLocation(popupView, Gravity.NO_GRAVITY, rect.left.toInt(), rect.bottom.toInt())
+
+            popupView.run {
+                findViewById<View>(R.id.show).setOnClickListener {
+                    popupWindow?.dismiss()
+                    highlightId?.let { id ->
+                        sendShowHighlight(id)
+                    }
+                }
+                findViewById<View>(R.id.delete).setOnClickListener {
+                    popupWindow?.dismiss()
+                    highlightId?.let { id ->
+                        sendDeleteHighlight(id)
+                    }
+                }
+            }
         }
     }
 }

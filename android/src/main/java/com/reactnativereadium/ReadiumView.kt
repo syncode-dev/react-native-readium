@@ -11,6 +11,7 @@ import com.reactnativereadium.reader.EpubReaderFragment
 import com.reactnativereadium.reader.ReaderViewModel
 import com.reactnativereadium.utils.Dimensions
 import com.reactnativereadium.utils.File
+import com.reactnativereadium.utils.Highlight
 import com.reactnativereadium.utils.LinkOrLocator
 import org.readium.r2.shared.extensions.toMap
 
@@ -22,6 +23,7 @@ class ReadiumView(
   var fragment: BaseReaderFragment? = null
   var isViewInitialized: Boolean = false
   var lateInitSettings: Map<String, Any>? = null
+  var lateInitHighlights: List<Highlight>? = null
 
   fun updateLocation(location: LinkOrLocator) : Boolean {
     if (fragment == null) {
@@ -46,10 +48,26 @@ class ReadiumView(
     lateInitSettings = null
   }
 
+  fun updateHighlightsFromList(list: List<Highlight>?) {
+    if (list == null) {
+      return
+    } else if (fragment == null) {
+      lateInitHighlights = list
+      return
+    }
+
+    if (fragment is EpubReaderFragment) {
+      (fragment as EpubReaderFragment).updateHighlightsFromList(list)
+    }
+
+    lateInitHighlights = null
+  }
+
   fun addFragment(frag: BaseReaderFragment) {
     fragment = frag
     setupLayout()
     updateSettingsFromMap(lateInitSettings)
+    updateHighlightsFromList(lateInitHighlights)
     val activity: FragmentActivity? = reactContext.currentActivity as FragmentActivity?
     activity!!.supportFragmentManager
       .beginTransaction()
@@ -84,6 +102,22 @@ class ReadiumView(
           module.receiveEvent(
             this.id.toInt(),
             ReadiumViewManager.ON_TRANSLATE,
+            payload
+          )
+        }
+        is ReaderViewModel.Event.ShowHighlight -> {
+          val payload = Arguments.makeNativeMap(mapOf("id" to event.highlightId))
+          module.receiveEvent(
+            this.id.toInt(),
+            ReadiumViewManager.ON_SHOW_HIGHLIGHT,
+            payload
+          )
+        }
+        is ReaderViewModel.Event.DeleteHighlight -> {
+          val payload = Arguments.makeNativeMap(mapOf("id" to event.highlightId))
+          module.receiveEvent(
+            this.id.toInt(),
+            ReadiumViewManager.ON_DELETE_HIGHLIGHT,
             payload
           )
         }

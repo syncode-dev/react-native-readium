@@ -114,6 +114,8 @@ class ReaderViewModel(
         class LocatorUpdate(val locator: Locator) : Event()
         class TableOfContentsLoaded(val toc: List<Link>) : Event()
         class Translate(val locator: Locator) : Event()
+        class ShowHighlight(val highlightId: Int) : Event()
+        class DeleteHighlight(val highlightId: Int) : Event()
     }
 
     sealed class FeedbackEvent {
